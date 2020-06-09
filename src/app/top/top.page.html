@@ -1,0 +1,13 @@
+<ion-split-pane contentId="menu-content">
+  <ion-menu contentId="menu-content" side="start">
+    <ion-content>
+      <app-menu [user]="user" (logout)="logout($event)"></app-menu>
+    </ion-content>
+  </ion-menu>
+  <ion-menu contentId="menu-content" side="end">
+    <ion-content>
+      <!--   <app-talk [user]="user"></app-talk>-->
+    </ion-content>
+  </ion-menu>
+  <ion-router-outlet id="menu-content"></ion-router-outlet>
+</ion-split-pane>

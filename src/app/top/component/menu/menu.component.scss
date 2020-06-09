@@ -1,0 +1,46 @@
+.errmsg{
+  color:red;
+}
+.wrapItem{
+  --padding-start:0px;
+  --padding-end:0px;
+  --padding-top:0px;
+  --padding-bottom:0px;
+  --inner-padding-start:0px;
+  --inner-padding-end:0px;
+  --inner-padding-top:0px;
+  --inner-padding-bottom:0px;
+  padding:none;
+}
+.avatarItem{
+  --padding-end:0px;
+  --inner-padding-end:0px;
+}
+.innerItem{
+  --padding-start:5px;
+}
+.endButton{
+  --padding-start:0px;
+  --inner-padding-start:0px;
+}
+.na{
+  font-weight:600;  
+  font-size:small;
+}
+.date{
+  color:gray;
+  font-size: small;
+}
+.txt{
+  white-space: pre-wrap;
+  font-size: small;
+}
+.mention{
+  background-color: red;
+  color:white;
+  border-radius: 3px;
+}
+.column{
+  --padding-start:0px;
+  --inner-padding-start:0px;
+}

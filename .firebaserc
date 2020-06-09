@@ -1,0 +1,11 @@
+{
+  "targets": {
+    "iot-core8266": {
+      "hosting": {
+        "app": [
+          "iot-core8266"
+        ]
+      }
+    }
+  }
+}

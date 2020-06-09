@@ -1,0 +1,203 @@
+<ion-header>
+  <ion-toolbar button="true" routerLink="/">
+    <ion-title>
+      <ion-icon name="home"></ion-icon>電力統合制御
+    </ion-title>
+  </ion-toolbar>
+</ion-header>
+<ion-list>
+
+  <ion-item button="true" routerLink="/users/view">
+    <ion-icon name="people"></ion-icon><span>ユーザー一覧</span>
+  </ion-item>
+  <ion-item button="true" (click)="postReport()">
+    <ion-icon name="create"></ion-icon><span>レポート投稿</span>
+  </ion-item>
+
+  <ion-item *ngIf="column.up">
+    <ion-item (click)="loadColumns(column.grand)" class="column" button="true">
+      <ion-icon name="arrow-dropup" color="dark"></ion-icon><span>{{column.up}}</span>
+    </ion-item>
+    <ion-button (click)="postColumn(column.parent)" slot="end" fill="clear">
+      　 <ion-icon name="create" slot="icon-only"></ion-icon>
+    </ion-button>
+  </ion-item>
+  <ion-list>
+    <ion-reorder-group (ionItemReorder)="reorderColumns($event)" [disabled]="!user.admin">
+      <ion-item *ngFor="let col of columns">
+        <ion-reorder slot="start"></ion-reorder>
+        <ion-item button="true" [routerLink]="'/column/'+col.id">
+          {{col.na}}
+        </ion-item>
+        <ion-button *ngIf="column.lock;else free" [routerLink]="'/support/'+col.user" slot="end" fill="clear">
+          　 <ion-icon name="lock" slot="icon-only" color="tertiary"></ion-icon>
+        </ion-button>
+        <ng-template #free>
+          <ion-button *ngIf="col.hasChild;else create" (click)="loadColumns(col.id)" slot="end" fill="clear">
+            　 <ion-icon name="arrow-dropdown" slot="icon-only" color="dark"></ion-icon>
+          </ion-button>
+          <ng-template #create>
+            <ion-button (click)="postColumn(col.id)" slot="end" fill="clear">
+              　 <ion-icon name="create" slot="icon-only"></ion-icon>
+            </ion-button>
+          </ng-template>
+        </ng-template>
+      </ion-item>
+    </ion-reorder-group>
+  </ion-list>
+
+  <ng-container *ngIf="post$|async as posts">
+    <ion-item *ngIf="posts.length" button="true" (click)="mode=mode==='post'?'':'post'">
+      <ion-icon name="send" color="warning"></ion-icon><span>投稿審査</span>
+      <span class="mention">{{posts.length}}</span>
+    </ion-item>
+    <ion-list *ngIf="mode==='post'">
+      <ion-item *ngFor="let post of posts;index as i" class="wrapItem">
+        <div>
+          <ion-item class="avatarItem" lines="none" button="true" (click)="popUser($event,post.user.id)">
+            <ion-avatar>
+              <ion-img [src]="post.user.avatar"></ion-img>
+            </ion-avatar>
+          </ion-item>
+        </div>
+        <ion-item lines="none" button="true" [routerLink]="post.url" class="innerItem">
+          <div>
+            <div>
+              <span class="na">{{post.user.na}}</span>
+              <span class="date"> {{post.upd|date}}</span>
+            </div>
+            <div class="txt">{{post.na}}</div>
+          </div>
+        </ion-item>
+        <ion-button slot="end" (click)="deletePost(post.id)" fill="clear" class="endButton">
+          　 <ion-icon name="close-circle" slot="icon-only" color="dark"></ion-icon>
+        </ion-button>
+      </ion-item>
+    </ion-list>
+  </ng-container>
+</ion-list>
+<ion-list *ngIf="user.id;else guest">
+  <ng-container *ngIf="direct$|async as directs">
+    <ion-item button="true" (click)="direct(directs.length)">
+      <ion-icon name="mail"></ion-icon><span>ダイレクト</span>
+      <span class="mention" *ngIf="directs.length">{{directs.length}}</span>
+    </ion-item>
+    <ion-list *ngIf="mode==='direct'">
+      <ion-item *ngFor="let direct of directs;index as i" class="wrapItem">
+        <div>
+          <ion-item class="avatarItem" lines="none" button="true" (click)="popUser($event,direct.id)">
+            <ion-avatar>
+              <ion-img [src]="direct.avatar"></ion-img>
+            </ion-avatar>
+          </ion-item>
+        </div>
+        <ion-item lines="none" button="true" [routerLink]="direct.url" class="innerItem">
+          <div>
+            <div>
+              <span class="na">{{direct.na}}</span>
+              <span class="date"> {{direct.upd.toDate()|date}}</span>
+            </div>
+            <div class="txt">{{direct.description}}</div>
+          </div>
+        </ion-item>
+        <ion-button slot="end" (click)="delete(direct.url,'direct')" fill="clear" class="endButton">
+          　 <ion-icon name="close-circle" slot="icon-only" color="dark"></ion-icon>
+        </ion-button>
+      </ion-item>
+    </ion-list>
+  </ng-container>
+  <ng-container *ngIf="mention$|async as mentions">
+    <ion-item *ngIf="mentions.length" button="true" (click)="mode=mode==='mention'?'':'mention'">
+      <ion-icon name="notifications"></ion-icon><span>メンション</span>
+      <span class="mention">{{mentions.length}}</span>
+    </ion-item>
+    <ion-list *ngIf="mode==='mention'">
+      <ion-item *ngFor="let mention of mentions;index as i" class="wrapItem">
+        <div>
+          <ion-item class="avatarItem" lines="none" button="true" (click)="popUser($event,mention.id)">
+            <ion-avatar>
+              <ion-img [src]="mention.avatar"></ion-img>
+            </ion-avatar>
+          </ion-item>
+        </div>
+        <ion-item lines="none" button="true" [routerLink]="mention.url" class="innerItem">
+          <div>
+            <div>
+              <span class="na">{{mention.na}}</span>
+              <span class="date"> {{mention.upd.toDate()|date}}</span>
+            </div>
+            <div class="txt">{{mention.description}}</div>
+          </div>
+        </ion-item>
+        <ion-button slot="end" (click)="delete(mention.url,'mention')" fill="clear" class="endButton">
+          　 <ion-icon name="close-circle" slot="icon-only" color="dark"></ion-icon>
+        </ion-button>
+      </ion-item>
+    </ion-list>
+  </ng-container>
+  <ion-item button="true" (click)="mode=mode==='config'?'':'config'">
+    <ion-icon name="settings"></ion-icon><span>設定</span>
+  </ion-item>
+  <ion-list *ngIf="mode==='config'">
+    <ion-item button="true" routerLink="/regist">個人情報</ion-item>
+    <ion-item button="true" routerLink="/notify">通知</ion-item>
+    <ion-item button="true" routerLink="/design">デザイン</ion-item>
+  </ion-list>
+  <ion-item button="true" (click)="contact()">
+    <ion-icon name="help-circle"></ion-icon><span>お問い合わせ</span>
+  </ion-item>
+  <ion-item button="true" (click)="logout.emit(true)">
+    <ion-icon name="log-out"></ion-icon><span>ログアウト</span>
+  </ion-item>
+</ion-list>
+<ng-template #guest>
+  <ion-item routerLink="/login">
+    <ion-icon name="log-in"></ion-icon><span>ログイン</span>
+  </ion-item>
+</ng-template>
+<!--
+
+    <ion-segment name="shopOrder" scrollable="true" (ionChange)="shopOrder($event)" color="secondary">
+      <ion-segment-button value="投稿順">
+        <ion-label>投稿</ion-label>
+      </ion-segment-button>
+      <ion-segment-button value="コメント順">
+        <ion-label>コメント</ion-label>
+      </ion-segment-button>
+      <ion-segment-button value="いいね順">
+        <ion-label>いいね</ion-label>
+      </ion-segment-button>
+      <ion-segment-button value="50音順">
+        <ion-label>50音</ion-label>
+      </ion-segment-button>
+    </ion-segment>
+    <ion-segment name="orderTerm" (ionChange)="orderTerm($event)">
+      <ion-segment-button value="１週間">
+        <ion-label>一週間</ion-label>
+      </ion-segment-button>
+      <ion-segment-button value="１月間">
+        <ion-label>１か月</ion-label>
+      </ion-segment-button>
+      <ion-segment-button value="３月間">
+        <ion-label>３か月</ion-label>
+      </ion-segment-button>
+      <ion-segment-button value="１年間">
+        <ion-label>１年間</ion-label>
+      </ion-segment-button>
+      <ion-segment-button value="全期間">
+        <ion-label>全期間</ion-label>
+      </ion-segment-button>
+    </ion-segment>
+<ion-item *ngFor="let shop of shop$|async">
+  <span>{{shop.na}}</span>
+</ion-item>
+  <ion-label position="floating">期間</ion-label>
+      <ion-select name="term" placeholder="選択してください" cancelText="取消" okText="決定" [formControl]="term">
+        <ion-select-option value="day:3">３日</ion-select-option>
+        <ion-select-option value="day:7">１週</ion-select-option>
+        <ion-select-option value="month:1">１月</ion-select-option>
+        <ion-select-option value="month:3">３月</ion-select-option>
+        <ion-select-option value="year;1">１年</ion-select-option>
+        <ion-select-option value="all">全期間</ion-select-option>
+      </ion-select>
+-->

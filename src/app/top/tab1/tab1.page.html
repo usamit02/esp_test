@@ -1,0 +1,28 @@
+<ion-header [translucent]="true">
+  <ion-toolbar>
+    <ion-title>
+      メインパネル
+    </ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true">
+  <ion-grid>
+    <ion-row>
+      　<ion-col size-xs="6" size-sm="4" size-md="3" size-lg="6" size-xl="4">
+        <ion-card>
+          <ion-card-header>
+            <div class="header">
+              <ion-card-title>LED
+              </ion-card-title>
+            </div>
+          </ion-card-header>
+          <ion-card-content>
+            <i class="far fa-lightbulb"></i>
+            <ion-toggle [(ngModel)]="ledgreen" (ionChange)="ledgreenChange()"></ion-toggle>
+          </ion-card-content>
+        </ion-card>
+      </ion-col>
+    </ion-row>
+  </ion-grid>
+</ion-content>
