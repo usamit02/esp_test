@@ -119,6 +119,9 @@ export class MenuComponent implements OnInit, OnChanges, OnDestroy {
       this.ui.alert(`データベースの読込に失敗しました。\r\n${err.message}`);
     });
   }
+  popUser(e, uid) {
+
+  }
   ngOnDestroy() {
     this.onDestroy$.next();
   }
