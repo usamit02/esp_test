@@ -1,7 +1,7 @@
 <ion-header [translucent]="true">
   <ion-toolbar>
     <ion-title>
-      メインパネル
+      バッテリーモニター
     </ion-title>
   </ion-toolbar>
 </ion-header>
@@ -14,7 +14,7 @@
           <ion-card>
             <ion-card-header>
               <div class="header">
-                <ion-card-title> <i class="far fa-lightbulb"></i>
+                <ion-card-title> <i class="far fa-lightbulb fa-2x icon_green"></i>
                 </ion-card-title>
               </div>
             </ion-card-header>
@@ -27,7 +27,7 @@
           <ion-card>
             <ion-card-header>
               <div class="header">
-                <ion-card-title> <i class="far fa-lightbulb"></i>
+                <ion-card-title> <i class="far fa-lightbulb fa-2x icon_red"></i>
                 </ion-card-title>
               </div>
             </ion-card-header>
@@ -43,15 +43,17 @@
           <ion-card>
             <ion-card-header>
               <div class="header">
-                <ion-card-title><i class="fas fa-thermometer-half"></i>
+                <ion-card-title><i class="fas fa-thermometer-half fa-2x"></i>
                 </ion-card-title>
               </div>
             </ion-card-header>
             <ion-card-content>
-              <google-chart [data]="gauge1"></google-chart>
+              <div style="display:flex;">
+                <google-chart [data]="gauge1"></google-chart>
+                <google-chart [data]="tempChart"></google-chart>
+              </div>
             </ion-card-content>
           </ion-card>
-
         </ion-col>
       </ion-row>
     </ion-grid>

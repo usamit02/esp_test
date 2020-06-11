@@ -6,7 +6,7 @@ import { AngularFirestore } from '@angular/fire/firestore';
 import { AngularFireDatabase } from '@angular/fire/database';
 import { UserService } from '../../service/user.service';
 import { UiService } from '../../service/ui.service';
-import { GoogleChartInterface } from 'ng2-google-charts';
+import { GoogleChartInterface, GoogleChartComponent } from 'ng2-google-charts';
 @Component({
   selector: 'app-tab1',
   templateUrl: 'tab1.page.html',
@@ -53,21 +53,41 @@ export class Tab1Page implements OnInit, OnDestroy {
     chartType: 'Gauge',
     dataTable: [
       ['Label', 'Value'],
-      ['気温', 0]
+      ['℃', 0]
     ],
     options: {
       animation: { easing: 'out' },
       //width: 150, height: 150,
-      min: -20, max: 100,
-      greenFrom: 0, greenTo: 60,
-      yellowFrom: 60, yellowTo: 80,
-      redFrom: 80, redTo: 100,
-      minorTicks: 5,
-      majorTicks: ['-20', '0', '20', '40', '60', '80', '100'],
+      min: 15, max: 35,
+      greenFrom: 20, greenTo: 25,
+      yellowFrom: 25, yellowTo: 30,
+      redFrom: 30, redTo: 35,
+      minorTicks: 1,
+      majorTicks: ['15', '20', '25', '30', '35'],
     }
   };
+  public tempChart: GoogleChartInterface = {
+    chartType: 'AreaChart',
+    dataTable: [
+      [{ type: 'date' }, ''],
+      ['Date(2017, 3, 1)', 0]
+    ],
+    //opt_firstRowIsData: true,
+    options: {
+      //title: '気温の推移',
+      height: 300,
+      //chartArea: { height: '400' },
+      vAxis: {
+        minValue: 0
+      },
+      hAxis: {
+        title: '00:00',
+        format: 'ss'//'H:mm:ss'
+      }
+    },
+  };
   private onDestroy$ = new Subject();
-  constructor(private builder: FormBuilder, private sdb: AngularFirestore, private db: AngularFireDatabase, private userService: UserService, private ui: UiService, ) { }
+  constructor(private builder: FormBuilder, private sdb: AngularFirestore, private db: AngularFireDatabase, private userService: UserService, private ui: UiService,) { }
 
   ngOnInit() {
     this.deviceForm.valueChanges.pipe(debounceTime(500), takeUntil(this.onDestroy$)).subscribe(changes => {
@@ -77,10 +97,21 @@ export class Tab1Page implements OnInit, OnDestroy {
     const y = today.getFullYear();
     const m = today.getMonth() + 1;
     const d = today.getDate();
-    this.db.database.ref(`monitor/3180960054094360/thormo/1/${y}/${m}/${d}`).on('child_added', data => {
-      const dataTable = this.gauge1.dataTable;
-      dataTable[1][1] = data.val();
+    this.db.database.ref(`monitor/3180960054094360/thermo/1/${y}/${m}/${d}`).on('child_added', data => {
+      const val = data.val();
+      const gaugeTable = this.gauge1.dataTable;
+      gaugeTable[1][1] = val;
       this.gauge1.component.draw();
+      let chartTable = this.tempChart.dataTable;
+      let l = chartTable.length;
+      if (l > 9) {
+        chartTable.splice(1, 1);
+      }
+      const now = new Date(Number(data.key) * 1000);
+      chartTable.push([now, val]);
+      let options = this.tempChart.options;
+      options.hAxis.title = `${now.getHours()}:${now.getMinutes()}`;
+      this.tempChart.component.draw();
     });
   }
   deviceUpdate(changes) {
