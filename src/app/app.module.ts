@@ -18,6 +18,7 @@ import { AngularFireStorageModule } from '@angular/fire/storage';
   entryComponents: [],
   imports: [BrowserModule, IonicModule.forRoot(), AppRoutingModule, HttpClientModule,
     AngularFireModule.initializeApp(firebaseConfig), AngularFireAuthModule, AngularFirestoreModule, AngularFireDatabaseModule, AngularFireStorageModule,
+
   ],
   providers: [
     StatusBar, SplashScreen, { provide: RouteReuseStrategy, useClass: IonicRouteStrategy },

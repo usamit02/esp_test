@@ -22,6 +22,8 @@
               <ion-toggle [formControl]="led_green"></ion-toggle>
             </ion-card-content>
           </ion-card>
+        </ion-col>
+        <ion-col size-xs="6" size-sm="4" size-md="3" size-lg="6" size-xl="4">
           <ion-card>
             <ion-card-header>
               <div class="header">
@@ -34,6 +36,22 @@
               </ion-range>
             </ion-card-content>
           </ion-card>
+        </ion-col>
+      </ion-row>
+      <ion-row>
+        　<ion-col size-xs="12" size-sm="12" size-md="12" size-lg="12" size-xl="12">
+          <ion-card>
+            <ion-card-header>
+              <div class="header">
+                <ion-card-title><i class="fas fa-thermometer-half"></i>
+                </ion-card-title>
+              </div>
+            </ion-card-header>
+            <ion-card-content>
+              <google-chart [data]="gauge1"></google-chart>
+            </ion-card-content>
+          </ion-card>
+
         </ion-col>
       </ion-row>
     </ion-grid>
