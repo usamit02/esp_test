@@ -1,12 +1,12 @@
-import { Component, OnInit, OnDestroy, ViewChild, ElementRef } from '@angular/core';
-import { FormControl, FormBuilder, Validators } from '@angular/forms';
-import { Subject, Observable } from 'rxjs';
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import { FormControl, FormBuilder } from '@angular/forms';
+import { Subject } from 'rxjs';
 import { takeUntil, debounceTime } from 'rxjs/operators';
 import { AngularFirestore } from '@angular/fire/firestore';
 import { AngularFireDatabase } from '@angular/fire/database';
 import { UserService } from '../../service/user.service';
 import { UiService } from '../../service/ui.service';
-import { GoogleChartInterface, GoogleChartComponent } from 'ng2-google-charts';
+import { GoogleChartInterface } from 'ng2-google-charts';
 @Component({
   selector: 'app-tab1',
   templateUrl: 'tab1.page.html',
@@ -94,11 +94,10 @@ export class Tab1Page implements OnInit, OnDestroy {
       this.deviceUpdate(changes);
     });
     const today = new Date();
-    const y = today.getFullYear();
-    const m = today.getMonth() + 1;
-    const d = today.getDate();
-    this.db.database.ref(`monitor/3180960054094360/thermo/1/${y}/${m}/${d}`).on('child_added', data => {
-      const val = data.val();
+    const key = Math.floor(today.getTime() / 1000).toString();
+    const ref = this.db.database.ref(`monitor/3180960054094360/thermo/now`);
+    ref.orderByKey().startAt(key).on('child_added', data => {
+      const val = data.val() / 100;
       const gaugeTable = this.gauge1.dataTable;
       gaugeTable[1][1] = val;
       this.gauge1.component.draw();
@@ -110,7 +109,7 @@ export class Tab1Page implements OnInit, OnDestroy {
       const now = new Date(Number(data.key) * 1000);
       chartTable.push([now, val]);
       let options = this.tempChart.options;
-      options.hAxis.title = `${now.getHours()}:${now.getMinutes()}`;
+      options.hAxis.title = `${now.getHours()}:${("0" + now.getMinutes()).slice(-2)}`;
       this.tempChart.component.draw();
     });
   }

@@ -4,7 +4,7 @@ import { NgModule } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { Tab1Page } from './tab1.page';
-import { Ng2GoogleChartsModule, GoogleChartsSettings } from 'ng2-google-charts';
+import { Ng2GoogleChartsModule } from 'ng2-google-charts';
 @NgModule({
   imports: [
     IonicModule, CommonModule, FormsModule, ReactiveFormsModule,
