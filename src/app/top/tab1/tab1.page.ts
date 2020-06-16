@@ -1,5 +1,5 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
-import { FormControl, FormBuilder } from '@angular/forms';
+import { FormControl, FormBuilder, FormGroup } from '@angular/forms';
 import { Subject } from 'rxjs';
 import { takeUntil, debounceTime } from 'rxjs/operators';
 import { AngularFirestore } from '@angular/fire/firestore';
@@ -20,7 +20,7 @@ export class Tab1Page implements OnInit, OnDestroy {
   led_red = new FormControl(this.device.led_red);
   led_green = new FormControl(this.device.led_green);
   thermo = new FormControl(this.device.thermo);
-  deviceForm = this.builder.group({ led_red: this.led_red, led_green: this.led_green, thermo: this.thermo });//({ ledred: this.ledred })
+  deviceForm: FormGroup = this.builder.group({ led_red: this.led_red, led_green: this.led_green, thermo: this.thermo });//({ ledred: this.ledred })
   //ledgreen: boolean = false;
   //ledred: number = 0;
   //thermo: number;

@@ -95,7 +95,8 @@ export class DatePipe implements PipeTransform {
           return `${(date.getMonth() + 1)}/${date.getDate()} ${h}:${m}`;
         }
       case 'day':
-        todate.setHours(0, 0, 0, 0);//今日の0時  
+        todate.setHours(0, 0, 0, 0);//今日の0時
+        nextdate.setHours(0, 0, 0, 0);//今日の0時
         nextdate.setDate(todate.getDate() - 1);
         if (date >= nextdate) {
           if (date >= todate) {
