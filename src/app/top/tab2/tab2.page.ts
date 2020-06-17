@@ -107,14 +107,11 @@ export class Tab2Page implements OnInit {
       p++;
     }
     while (date.getTime() < to.getTime()) {
-      const keyFrom = date.getTime() / 1000;
+      const keyTo = date.getTime() / 1000 + 60 * minuteAdd;
       let key = Number(Object.keys(this.data)[p]);
-      if (keyFrom >= key) {
-        //let d = new Date(date);
-        //d.setMinutes(d.getMinutes() + minuteAdd);
-        const keyTo = keyFrom + 60 * minuteAdd;
+      if (keyTo > key) {
         let sum = 0; let count = 0;
-        while (key < keyTo) {
+        while (keyTo > key) {
           sum += this.data[key];
           p++;
           count++;
@@ -124,13 +121,13 @@ export class Tab2Page implements OnInit {
           };
         }
         this.tempChart.dataTable.push([new Date(date), Math.floor(sum / count) / 100]);
-        wH += count ? sum / count : 0;
+        wH += sum;//count ? sum / count : 0;
       } else {
         this.tempChart.dataTable.push([new Date(date), 0]);
       }
       date.setMinutes(date.getMinutes() + minuteAdd);
     }
-    const diff = to.getTime() - from.getTime() + 1;
+    const diff = to.getTime() - from.getTime() + 1000;
     let diffD = diff / (1000 * 60 * 60 * 24);
     let diffH = (diffD - Math.floor(diffD)) * 24;
     const diffM = Math.floor((diffH - Math.floor(diffH)) * 60);
@@ -155,7 +152,7 @@ export class Tab2Page implements OnInit {
     for (let key of Object.keys(changes)) {
       if (this.control[key] !== changes[key]) {
         if (key === 'xScale') {
-          let diff = this.to.getTime() - this.from.getTime() + 1;
+          let diff = this.to.getTime() - this.from.getTime() + 1000;
           let center = this.selected.day ? this.selected.day : new Date(this.from.getTime() + Math.floor(diff / 2));
           let half = Math.ceil(diff / changes.xScale / 2 / 60000) * 60000;
           this.updateChart(new Date(center.getTime() - half), new Date(center.getTime() + half), Math.ceil(diff / 8640000 / changes.xScale));
