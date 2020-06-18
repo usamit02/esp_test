@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { FormControl, FormBuilder, FormGroup } from '@angular/forms';
 import { Subject } from 'rxjs';
-import { takeUntil, debounceTime } from 'rxjs/operators';
+import { takeUntil, debounceTime, skip } from 'rxjs/operators';
 import { ModalController } from '@ionic/angular';
 import { CalendarModal, CalendarModalOptions, DayConfig, CalendarResult } from "ion2-calendar";
 import { GoogleChartInterface } from 'ng2-google-charts';
@@ -33,18 +33,19 @@ export class Tab2Page implements OnInit {
   now: Date;
   data = {};
   selected = { day: new Date(new Date().getTime() - 43200000), val: 0 };
-  control = { xScale: 0 };
+  control = { xScale: 1 };
   xScale = new FormControl(this.control.xScale);
   chartForm: FormGroup = this.builder.group({ xScale: this.xScale });//({ ledred: this.ledred })   
   private onDestroy$ = new Subject();
   constructor(public modalCtrl: ModalController, private db: AngularFireDatabase, private ui: UiService, private builder: FormBuilder) { }
   ngOnInit() {
     let d = new Date();
+    d.setMilliseconds(0);
     this.now = new Date(d.setSeconds(59));
     this.to = new Date(d);
     this.from = new Date(this.to.getTime() - 86399000);
     this.changeFromTo();
-    this.chartForm.valueChanges.pipe(debounceTime(500), takeUntil(this.onDestroy$)).subscribe(changes => {
+    this.chartForm.valueChanges.pipe(debounceTime(500), takeUntil(this.onDestroy$), skip(1)).subscribe(changes => {
       this.updateControl(changes);
     });
   }
@@ -94,14 +95,16 @@ export class Tab2Page implements OnInit {
     }
     Promise.all(promises).then(() => {
       this.data = data;
-      this.updateChart(this.from, this.to, diff + 1);
+      this.xScale.reset(1);
       this.selected.day = new Date(this.from.getTime() + Math.floor((this.to.getTime() - this.from.getTime()) / 2));
+      this.updateChart(this.from, this.to, diff + 1);
     }).catch(err => {
       this.ui.alert(`データーの読込に失敗しました。`);
       console.log(`${err}`);
     });
   }
   updateChart(from, to, minuteAdd) {
+    console.log(`${this.from.getTime()}  ${from.getTime()}`);
     let date = new Date(from);
     this.tempChart.dataTable = [['date', '発電']]; //[[{ type: 'date' }, '']];
     let p = 0;//電力データーのポインタ
@@ -153,43 +156,46 @@ export class Tab2Page implements OnInit {
   }
   updateControl(changes) {
     for (let key of Object.keys(changes)) {
-      if (this.control[key] !== changes[key]) {
-        if (key === 'xScale') {
-          let diff = this.to.getTime() - this.from.getTime() + 1000;
-          let center = this.selected.day ? this.selected.day : new Date(this.from.getTime() + Math.floor(diff / 2));
-          let half = Math.ceil(diff / changes.xScale / 2 / 60000) * 60000;
-          this.updateChart(new Date(center.getTime() - half), new Date(center.getTime() + half), Math.ceil(diff / 8640000 / changes.xScale));
-        }
+      //  if (this.control[key] !== changes[key]) {
+      if (key === 'xScale') {
+        let diff = this.to.getTime() - this.from.getTime() + 1000;
+        let center = this.selected.day ? this.selected.day : new Date(this.from.getTime() + Math.floor(diff / 2));
+        let half = Math.ceil(diff / changes.xScale / 2 / 60000) * 60000;
+        this.updateChart(new Date(center.getTime() - half), new Date(center.getTime() + half), Math.ceil(diff / 8640000 / changes.xScale));
       }
+      // }
     }
   }
   chartSlide(dir: number) {
     const from = this.tempChart.dataTable[1][0];
-    //let to = new Date(this.tempChart.dataTable[this.tempChart.dataTable.length - 1][0]);
-
-    if (this.from.getTime() === from.getTime()) {
+    const xScale = this.xScale.value;
+    const diff = this.to.getTime() - this.from.getTime() + 1000;
+    const term = Math.ceil(diff / xScale / 60000) * 60000;
+    const to = new Date(from.getTime() + term);
+    let a = this.from.getTime() === from.getTime();
+    let b = this.to.getTime() === to.getTime();
+    //console.log(`${a}  ${b} ${this.from.getTime()} ${from.getTime()}`);
+    if (this.from.getTime() === from.getTime() || this.to.getTime() === to.getTime()) {
       const diff = Math.ceil((this.to.getTime() - from.getTime()) / 86400000);
       this.to.setDate(this.to.getDate() + dir * diff);
       this.to = this.to.getTime() > this.now.getTime() ? new Date(this.now) : new Date(this.to);
       this.from = new Date(this.to.getTime() - diff * 86400000 + 1000);//this.from.setDate(this.from.getDate() + dir * diff));
-      console.log(`this.from:${this.from} this.to:${this.to}`);
-      /*
-      this.from = new Date(from.setDate(from.getDate() + dir * diff));
-      let adj = this.from.getHours() === 0 && this.from.getMinutes() === 0 ? -1 : 0;
-      to.setMinutes(to.getMinutes() + diff + adj);
-      to.setSeconds(59);
-      this.to = new Date(to.setDate(to.getDate() + dir * diff));
-      */
+      //console.log(`this.from:${this.from} this.to:${this.to}`);
       this.changeFromTo();
-    } else {
-      const xScale = this.xScale.value;
-      const diff = this.to.getTime() - this.from.getTime() + 1000;
-      let add = Math.ceil(diff / xScale / 60000) * 60000;
-      const to = new Date(from.getTime() + add);
-      console.log(`from:${from} to:${to}`);
-      this.selected.day = new Date(from.getTime() + Math.floor(diff / 2) * dir)
-      this.updateChart(new Date(from.getTime() + add * dir), new Date(to.getTime() + add * dir), Math.ceil(diff / 8640000 / xScale));
-
+    } else {//拡大表示中      
+      let slide = term;
+      if (dir === -1) {
+        if (from.getTime() - term < this.from.getTime()) {
+          slide = from.getTime() - this.from.getTime();
+        }
+      } else {
+        if (to.getTime() + term > this.to.getTime()) {
+          slide = this.to.getTime() - to.getTime();
+        }
+      }
+      this.selected.day = new Date(from.getTime() + slide * dir + Math.floor(term / 2));
+      //console.log(`from:${new Date(from.getTime() + slide * dir)} to:${new Date(to.getTime() + slide * dir)}`);
+      this.updateChart(new Date(from.getTime() + slide * dir), new Date(to.getTime() + slide * dir), Math.ceil(diff / 8640000 / xScale));
     }
   }
   dummyData() {
