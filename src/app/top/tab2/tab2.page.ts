@@ -3,7 +3,7 @@ import { FormControl, FormBuilder, FormGroup } from '@angular/forms';
 import { Subject } from 'rxjs';
 import { takeUntil, debounceTime } from 'rxjs/operators';
 import { ModalController } from '@ionic/angular';
-import { CalendarModal, CalendarModalOptions, DayConfig, CalendarResult } from "ion2-calendar";
+import { CalendarModal, CalendarModalOptions } from "ion2-calendar";
 import { GoogleChartInterface } from 'ng2-google-charts';
 import { AngularFireDatabase } from '@angular/fire/database';
 import { UiService } from '../../service/ui.service';
@@ -33,9 +33,12 @@ export class Tab2Page implements OnInit {
   now: Date;
   data = {};
   selected = { day: new Date(new Date().getTime() - 43200000), val: 0 };
-  control = { xScale: 1 };
-  xScale = new FormControl(this.control.xScale);
-  chartForm: FormGroup = this.builder.group({ xScale: this.xScale });//({ ledred: this.ledred })   
+  slide = { prev: true, next: false };//前、次ボタンの可否
+  control = { xRange: 0 };
+  xRange = new FormControl(this.control.xRange);
+  xScale = 1;
+  chartForm: FormGroup = this.builder.group({ xRange: this.xRange });//({ ledred: this.ledred })
+  child_added;//１分ごとの新規データ追加イベント
   private onDestroy$ = new Subject();
   constructor(public modalCtrl: ModalController, private db: AngularFireDatabase, private ui: UiService, private builder: FormBuilder) { }
   ngOnInit() {
@@ -71,19 +74,15 @@ export class Tab2Page implements OnInit {
     });
   }
   changeFromTo() {
+    this.ui.loading();
     let y, m, d;
     let data = {};
-    let promises = []
     let diff = Math.ceil((this.to.getTime() - this.from.getTime()) / 86400000);
     diff = this.from.getHours() === 0 && this.from.getMinutes() === 0 ? diff - 1 : diff;//0:00から始まっていれば１日読込を減らす
     let day = new Date(this.from);
     const startAt = (Math.floor(this.from.getTime() / 1000)).toString();
-    for (let i = 0; i <= diff; i++) {
-      y = day.getFullYear();
-      m = day.getMonth() + 1;
-      d = day.getDate();
-      day.setDate(day.getDate() + 1);
-      let promise = new Promise((resolve, reject) => {
+    const readData = (y, m, d) => {
+      return new Promise((resolve, reject) => {
         this.db.database.ref(`monitor/3180960054094360/thermo/${y}/${m}/${d}`).orderByKey().startAt(startAt).once('value', snap => {
           data = { ...data, ...snap.val() };
           resolve();
@@ -91,16 +90,60 @@ export class Tab2Page implements OnInit {
           reject(err);
         });
       });
-      promises.push(promise);
     }
-    Promise.all(promises).then(() => {
+    let promise = Promise.resolve();
+    for (let i = 0; i <= diff; i++) {
+      y = day.getFullYear();
+      m = day.getMonth() + 1;
+      d = day.getDate();
+      day.setDate(day.getDate() + 1);
+      promise = promise.then(readData.bind(this, y, m, d));//readDataの直列promiseループ
+    }
+    promise.then(() => {
       this.data = data;
-      if (this.xScale.value > 1) this.xScale.setValue(1);
+      if (this.xRange.value > 0) this.xRange.setValue(0);
       this.selected.day = new Date(this.from.getTime() + Math.floor((this.to.getTime() - this.from.getTime()) / 2));
       this.updateChart(this.from, this.to, diff + 1);
+      if (this.child_added) this.child_added.off();
+      if (this.to.getTime() >= this.now.getTime()) {
+        console.log(`event add`);
+        this.slide.next = false;
+        const startAt = (Math.ceil(this.now.getTime() / 1000)).toString();
+        this.child_added = this.db.database.ref(`monitor/3180960054094360/thermo/${y}/${m}/${d}`).orderByKey().startAt(startAt);
+        this.child_added.on('child_added', snap => {
+          let data = { [snap.key]: snap.val() };
+          this.data = { ...this.data, ...data };
+          const diff = this.to.getTime() - this.from.getTime() + 1000;
+          const from = this.tempChart.dataTable[1][0];
+          const term = Math.ceil(diff / this.xScale / 60000) * 60000;
+          const to = new Date(from.getTime() + term - 1000);
+          let noZoom = this.from.getTime() === from.getTime();// || this.to.getTime() === to.getTime();
+          let now = new Date(Number(snap.key) * 1000);
+          now.setSeconds(59);
+          this.now = new Date(now);
+          this.to = new Date(now);
+          this.from = new Date(now.getTime() - diff + 1000);
+          if (noZoom) {//拡大表示中
+            this.updateChart(this.from, this.to, Math.ceil(diff / 86400000 / this.xScale));
+            console.log(`child_added ${this.from}～${this.to}`);
+          } else {
+            const slide = this.to.getTime() - to.getTime();
+            if (slide > 0) {
+              console.log(`child_added zoom ${from}～${to}`);
+              this.updateChart(new Date(from.getTime() + slide), new Date(to.getTime() + slide), Math.ceil(diff / 86400000 / this.xScale));
+            } else {
+              console.log(`negative slide ${slide} ${from}～${to}`);
+            }
+          }
+        });
+      } else {
+        this.slide.next = true;
+      }
     }).catch(err => {
       this.ui.alert(`データーの読込に失敗しました。`);
       console.log(`${err}`);
+    }).finally(() => {
+      this.ui.loadend();
     });
   }
   updateChart(from, to, minuteAdd) {
@@ -155,21 +198,25 @@ export class Tab2Page implements OnInit {
   }
   updateControl(changes) {
     for (let key of Object.keys(changes)) {
-      if (key === 'xScale') {
+      if (key === 'xRange') {
+        this.xScale = (changes.xRange ** 2 / 100) + 1;
         let diff = this.to.getTime() - this.from.getTime() + 1000;
         let center = this.selected.day ? this.selected.day : new Date(this.from.getTime() + Math.floor(diff / 2));
-        let half = Math.ceil(diff / changes.xScale / 2 / 60000) * 60000;
-        this.updateChart(new Date(center.getTime() - half), new Date(center.getTime() + half), Math.ceil(diff / 8640000 / changes.xScale));
+        let half = Math.ceil(diff / this.xScale / 2 / 60000) * 60000;
+        const from = new Date(center.getTime() - half);
+        const to = new Date(center.getTime() + half);
+        this.updateChart(from, to, Math.ceil(diff / 8640000 / this.xScale));
+        this.slide.prev = from.getTime() > this.from.getTime() ? true : false;
+        this.slide.next = to.getTime() < this.to.getTime() ? true : false;
       }
     }
   }
   chartSlide(dir: number) {
     const from = this.tempChart.dataTable[1][0];
-    const xScale = this.xScale.value;
     const diff = this.to.getTime() - this.from.getTime() + 1000;
-    const term = Math.ceil(diff / xScale / 60000) * 60000;
+    const term = Math.ceil(diff / this.xScale / 60000) * 60000;
     const to = new Date(from.getTime() + term);
-    if (this.from.getTime() === from.getTime() || this.to.getTime() === to.getTime()) {
+    if (this.xScale === 1 && (this.from.getTime() === from.getTime() || this.to.getTime() === to.getTime())) {
       const diff = Math.ceil((this.to.getTime() - from.getTime()) / 86400000);
       this.to.setDate(this.to.getDate() + dir * diff);
       this.to = this.to.getTime() > this.now.getTime() ? new Date(this.now) : new Date(this.to);
@@ -180,14 +227,22 @@ export class Tab2Page implements OnInit {
       if (dir === -1) {
         if (from.getTime() - term < this.from.getTime()) {
           slide = from.getTime() - this.from.getTime();
+          this.slide.prev = false;
+        } else {
+          this.slide.prev = true;
         }
+        this.slide.next = true;
       } else {
         if (to.getTime() + term > this.to.getTime()) {
           slide = this.to.getTime() - to.getTime();
+          this.slide.next = false;
+        } else {
+          this.slide.next = true;
         }
+        this.slide.prev = true;
       }
       this.selected.day = new Date(from.getTime() + slide * dir + Math.floor(term / 2));
-      this.updateChart(new Date(from.getTime() + slide * dir), new Date(to.getTime() + slide * dir), Math.ceil(diff / 8640000 / xScale));
+      this.updateChart(new Date(from.getTime() + slide * dir), new Date(to.getTime() + slide * dir), Math.ceil(diff / 8640000 / this.xScale));
     }
   }
   dummyData() {

@@ -18,13 +18,12 @@
   <google-chart [data]="tempChart" (chartSelect)="clickChart($event)"></google-chart>
   <form [formGroup]="chartForm">
     <ion-item>
-      <ion-button fill="clear" (click)="chartSlide(-1)" slot="start">
+      <ion-button fill="clear" (click)="chartSlide(-1)" slot="start" [disabled]="!slide.prev">
         <i class="fas fa-arrow-circle-left fa-2x"></i>
       </ion-button>
-      <ion-range min="1" max="60" step="1" [formControl]="xScale" pin="true" snaps="true" style="width:100%;">
+      <ion-range min="0" max="78" step="1" [formControl]="xRange" pin="false" snaps="false" style="width:100%;">
       </ion-range>
-      <ion-button fill="clear" (click)="chartSlide(1)" style="width:50px;" slot="end"
-        [disabled]="to.getTime()>=now.getTime()">
+      <ion-button fill="clear" (click)="chartSlide(1)" style="width:50px;" slot="end" [disabled]="!slide.next">
         <i class="fas fa-arrow-circle-right fa-2x"></i>
       </ion-button>
     </ion-item>
@@ -37,3 +36,10 @@
 
   <ion-button (click)="dummyData()">ダミーデータ生成</ion-button>
 </ion-content>
+
+<!--
+ [disabled]="to.getTime()>=now.getTime()&&xScale.value===1"
+
+
+  
+-->
