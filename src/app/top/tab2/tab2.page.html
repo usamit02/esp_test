@@ -8,33 +8,15 @@
 
 <ion-content [fullscreen]="true">
   <ion-item>
-    <ion-text *ngIf="from.getDate()!==to.getDate()||from.getMonth()!==to.getMonth() else oneDay">
-      {{from|date:'day'}}～{{to|date:'day'}}</ion-text>
+    <ion-text
+      *ngIf="fromTo.from.getDate()!==fromTo.to.getDate()||fromTo.from.getMonth()!==fromTo.to.getMonth() else oneDay">
+      {{fromTo.from|date:'day'}}～{{fromTo.to|date:'day'}}</ion-text>
     <ng-template #oneDay>
-      <ion-text>{{from|date:'day'}}</ion-text>
+      <ion-text>{{fromTo.from|date:'day'}}</ion-text>
     </ng-template>
     <ion-button (click)="openCalendar()" slot="end">表示期間</ion-button>
   </ion-item>
-  <google-chart [data]="chart" (chartSelect)="clickChart($event)"></google-chart>
-  <form [formGroup]="chartForm">
-    <ion-item>
-      <ion-button fill="clear" (click)="chartSlide(-1)" slot="start" [disabled]="!slide.prev">
-        <i class="fas fa-arrow-circle-left fa-2x"></i>
-      </ion-button>
-      <ion-range min="0" max="78" step="1" [formControl]="xRange" pin="false" snaps="false" style="width:100%;">
-      </ion-range>
-      <ion-button fill="clear" (click)="chartSlide(1)" style="width:50px;" slot="end" [disabled]="!slide.next">
-        <i class="fas fa-arrow-circle-right fa-2x"></i>
-      </ion-button>
-    </ion-item>
-  </form>
-
-  <ion-text>{{to.getTime()}}から{{now.getTime()}}</ion-text>
-
-
-
-
-  <ion-button (click)="percent()">割合</ion-button>
+  <app-areaChart [fromTo]="fromTo" [now]="now"></app-areaChart>
 </ion-content>
 
 <!--
