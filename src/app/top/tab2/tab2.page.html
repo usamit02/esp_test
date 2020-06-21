@@ -15,7 +15,7 @@
     </ng-template>
     <ion-button (click)="openCalendar()" slot="end">表示期間</ion-button>
   </ion-item>
-  <google-chart [data]="tempChart" (chartSelect)="clickChart($event)"></google-chart>
+  <google-chart [data]="chart" (chartSelect)="clickChart($event)"></google-chart>
   <form [formGroup]="chartForm">
     <ion-item>
       <ion-button fill="clear" (click)="chartSlide(-1)" slot="start" [disabled]="!slide.prev">
@@ -34,7 +34,7 @@
 
 
 
-  <ion-button (click)="dummyData()">ダミーデータ生成</ion-button>
+  <ion-button (click)="percent()">割合</ion-button>
 </ion-content>
 
 <!--

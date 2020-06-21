@@ -13,7 +13,7 @@ import { UiService } from '../../service/ui.service';
   styleUrls: ['tab2.page.scss']
 })
 export class Tab2Page implements OnInit {
-  public tempChart: GoogleChartInterface = {
+  chart: GoogleChartInterface = {
     chartType: 'AreaChart',
     dataTable: [
       ['date', 'number'], [new Date(), 0]
@@ -25,7 +25,9 @@ export class Tab2Page implements OnInit {
       },
       hAxis: {
         format: 'M/d'
-      }
+      },
+      isStacked: 'absolute',
+      title: "充電"
     },
   };
   from: Date;
@@ -33,6 +35,8 @@ export class Tab2Page implements OnInit {
   now: Date;
   data = {};
   selected = { day: new Date(new Date().getTime() - 43200000), val: 0 };
+  term: String;//タイトルに表示されている期間
+  wH: any = {};//期間内の電力 
   slide = { prev: true, next: false };//前、次ボタンの可否
   control = { xRange: 0 };
   xRange = new FormControl(this.control.xRange);
@@ -83,7 +87,7 @@ export class Tab2Page implements OnInit {
     const startAt = (Math.floor(this.from.getTime() / 1000)).toString();
     const readData = (y, m, d) => {
       return new Promise((resolve, reject) => {
-        this.db.database.ref(`monitor/3180960054094360/thermo/${y}/${m}/${d}`).orderByKey().startAt(startAt).once('value', snap => {
+        this.db.database.ref(`monitor/3180960054094360/${y}/${m}/${d}`).orderByKey().startAt(startAt).once('value', snap => {
           data = { ...data, ...snap.val() };
           resolve();
         }).catch(err => {
@@ -109,12 +113,12 @@ export class Tab2Page implements OnInit {
         console.log(`event add`);
         this.slide.next = false;
         const startAt = (Math.ceil(this.now.getTime() / 1000)).toString();
-        this.child_added = this.db.database.ref(`monitor/3180960054094360/thermo/${y}/${m}/${d}`).orderByKey().startAt(startAt);
+        this.child_added = this.db.database.ref(`monitor/3180960054094360/${y}/${m}/${d}`).orderByKey().startAt(startAt);
         this.child_added.on('child_added', snap => {
           let data = { [snap.key]: snap.val() };
           this.data = { ...this.data, ...data };
           const diff = this.to.getTime() - this.from.getTime() + 1000;
-          const from = this.tempChart.dataTable[1][0];
+          const from = this.chart.dataTable[1][0];
           const term = Math.ceil(diff / this.xScale / 60000) * 60000;
           const to = new Date(from.getTime() + term - 1000);
           let noZoom = this.from.getTime() === from.getTime();// || this.to.getTime() === to.getTime();
@@ -127,13 +131,10 @@ export class Tab2Page implements OnInit {
             this.updateChart(this.from, this.to, Math.ceil(diff / 86400000 / this.xScale));
             console.log(`child_added ${this.from}～${this.to}`);
           } else {
-            const slide = this.to.getTime() - to.getTime();
-            if (slide > 0) {
-              console.log(`child_added zoom ${from}～${to}`);
-              this.updateChart(new Date(from.getTime() + slide), new Date(to.getTime() + slide), Math.ceil(diff / 86400000 / this.xScale));
-            } else {
-              console.log(`negative slide ${slide} ${from}～${to}`);
-            }
+            let slide = this.to.getTime() - to.getTime();
+            slide = slide > 0 ? slide : 0;
+            console.log(`child_added zoom ${from}～${to}`);
+            this.updateChart(new Date(from.getTime() + slide), new Date(to.getTime() + slide), Math.ceil(diff / 86400000 / this.xScale));
           }
         });
       } else {
@@ -148,19 +149,39 @@ export class Tab2Page implements OnInit {
   }
   updateChart(from, to, minuteAdd) {
     let date = new Date(from);
-    this.tempChart.dataTable = [['date', '発電']]; //[[{ type: 'date' }, '']];
+    //this.tempChart.dataTable = [['date', '発電']]; //[[{ type: 'date' }, '']];
     let p = 0;//電力データーのポインタ
-    let wH = 0;//期間内の電力
-    while (Number(Object.keys(this.data)[p]) < from.getTime() / 1000) {
-      p++;
+    let sum: any = {};
+    let dataTable = ['date'];
+    let nodata = [];
+    const key0 = Object.keys(this.data)[0];
+    if (key0) {
+      while (Number(Object.keys(this.data)[p]) < from.getTime() / 1000) {
+        p++;
+      }
+      for (let typ of Object.keys(this.data[key0])) {
+        dataTable.push(typ);
+        sum[typ] = 0;
+        this.wH[typ] = 0;
+        nodata.push(0);
+      }
+    } else {
+      dataTable.push('なし');
+      nodata.push(0);
     }
+    this.chart.dataTable = [dataTable];
     while (date.getTime() <= to.getTime()) {
       const keyTo = date.getTime() / 1000 + 60 * minuteAdd;
       let key = Number(Object.keys(this.data)[p]);
       if (keyTo > key) {
-        let sum = 0; let count = 0;
+        for (let typ of Object.keys(this.data[key0])) {
+          sum[typ] = 0;
+        }
+        let count = 0;
         while (keyTo > key) {
-          sum += this.data[key];
+          for (let typ of Object.keys(this.data[key0])) {
+            sum[typ] += this.data[key][typ] ? this.data[key][typ] : 0;
+          }
           p++;
           count++;
           key = Number(Object.keys(this.data)[p]);
@@ -168,10 +189,15 @@ export class Tab2Page implements OnInit {
             break
           };
         }
-        this.tempChart.dataTable.push([new Date(date), Math.floor(sum / count) / 100]);
-        wH += sum;//count ? sum / count : 0;
+        let data: any = [new Date(date)];
+        for (let typ of Object.keys(sum)) {
+          let div = typ === "thermo" ? 100 : 1;
+          data.push(Math.floor(sum[typ] / count) / div);
+          this.wH[typ] += sum[typ];
+        }
+        this.chart.dataTable.push(data);
       } else {
-        this.tempChart.dataTable.push([new Date(date), 0]);
+        this.chart.dataTable.push([new Date(date), ...nodata]);
       }
       date.setMinutes(date.getMinutes() + minuteAdd);
     }
@@ -180,21 +206,32 @@ export class Tab2Page implements OnInit {
     let diffH = (diffD - Math.floor(diffD)) * 24;
     const diffM = Math.floor((diffH - Math.floor(diffH)) * 60);
     diffD = Math.floor(diffD); diffH = Math.floor(diffH);
-    let title = diffD ? `${diffD}日` : ""
-    title += diffH ? `${diffH}時` : "";
-    title += diffM ? `${diffM}分` : "";
-    title += "間の電力量 ";
-    title += wH ? `${Math.floor(wH / 60) / 100}W/h` : "はありません。";
-    let options = this.tempChart.options;
+    this.term = diffD ? `${diffD}日` : ""
+    this.term += diffH ? `${diffH}時` : "";
+    this.term += diffM ? `${diffM}分` : "";
+    this.term += "間の";
+    let title = this.term + "電力量 ";
+    title += this.wH.thermo ? `${Math.floor(this.wH.thermo / 60) / 100}W/h` : "はありません。";
+    let options = this.chart.options;
     options.hAxis.title = title//`${from.getMonth() + 1}/${from.getDate()}～${to.getMonth() + 1}/${to.getDate()}`;
     options.hAxis.titleFontSize = 18;
     options.hAxis.format = "M/dd\nHH:mm";
-    this.tempChart.component.draw();
+    this.chart.component.draw();
   }
   clickChart(e) {
-    if (!e.selectedRowValues.length) return;
-    this.selected.day = new Date(e.selectedRowValues[0]);
-    this.selected.val = e.selectedRowValues[1];
+    if (!e.column) return;
+    let title = `${e.columnLabel}合計 `;
+    title += this.wH[e.columnLabel] ? `${Math.floor(this.wH[e.columnLabel] / 60) / 100}W/h` : "はありません。";
+    this.chart.options.hAxis.title = title;
+    this.chart.component.draw();
+    if (e.selectedRowValues.length) {
+      this.selected.day = new Date(e.selectedRowValues[0]);
+      this.selected.val = e.selectedRowValues[1];
+    }
+  }
+  percent() {
+    this.chart.options.isStacked = this.chart.options.isStacked === 'absolute' ? 'percent' : 'absolute';
+    this.chart.component.draw();
   }
   updateControl(changes) {
     for (let key of Object.keys(changes)) {
@@ -212,7 +249,7 @@ export class Tab2Page implements OnInit {
     }
   }
   chartSlide(dir: number) {
-    const from = this.tempChart.dataTable[1][0];
+    const from = this.chart.dataTable[1][0];
     const diff = this.to.getTime() - this.from.getTime() + 1000;
     const term = Math.ceil(diff / this.xScale / 60000) * 60000;
     const to = new Date(from.getTime() + term);

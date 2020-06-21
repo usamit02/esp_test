@@ -95,9 +95,9 @@ export class Tab1Page implements OnInit, OnDestroy {
     });
     const today = new Date();
     const key = Math.floor(today.getTime() / 1000).toString();
-    const ref = this.db.database.ref(`monitor/3180960054094360/thermo/now`);
+    const ref = this.db.database.ref(`monitor/3180960054094360/now`);
     ref.orderByKey().startAt(key).on('child_added', data => {
-      const val = data.val() / 100;
+      const val = data.val().thermo / 100;
       const gaugeTable = this.gauge1.dataTable;
       gaugeTable[1][1] = val;
       this.gauge1.component.draw();
