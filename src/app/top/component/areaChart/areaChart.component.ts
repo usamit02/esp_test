@@ -1,9 +1,8 @@
-import { Component, OnInit, OnDestroy, Input } from '@angular/core';
+import { Component, OnInit, OnDestroy, Input, Output, EventEmitter } from '@angular/core';
 import { FormControl, FormBuilder, FormGroup } from '@angular/forms';
 import { Subject } from 'rxjs';
 import { takeUntil, debounceTime } from 'rxjs/operators';
 import { GoogleChartInterface } from 'ng2-google-charts';
-import { AngularFireDatabase } from '@angular/fire/database';
 import { UiService } from '../../../service/ui.service';
 @Component({
   selector: 'app-areaChart',
@@ -30,14 +29,39 @@ export class AreaChartComponent implements OnInit, OnDestroy {
   };
   private from: Date;
   private to: Date;
-  @Input()
-  set fromTo(_fromTo: any) {
-    this.from = _fromTo.from;
-    this.to = _fromTo.to;
-    this.changeFromTo();
-  }
-  @Input() now: Date;
+  private now: Date;
   private data = {};
+  @Input()
+  set param(_param: any) {
+    if (_param.from.getTime() !== _param.to.getTime()) {
+      this.from = _param.from;
+      this.to = _param.to;
+      this.now = _param.to;
+      this.data = _param.data;
+      if (_param.child_added) {
+        const diff = this.to.getTime() - this.from.getTime() + 1000;
+        const from = this.chart.dataTable[1][0];
+        const term = Math.ceil(diff / this.xScale / 60000) * 60000;
+        const to = new Date(from.getTime() + term - 1000);
+        let noZoom = this.from.getTime() === from.getTime();// || this.to.getTime() === to.getTime();          
+        if (noZoom) {//拡大表示中
+          this.updateChart(this.from, this.to, Math.ceil(diff / 86400000 / this.xScale));
+          console.log(`child_added ${this.from}～${this.to}`);
+        } else {
+          let slide = this.to.getTime() - to.getTime();
+          slide = slide > 0 ? slide : 0;
+          console.log(`child_added zoom ${from}～${to}`);
+          this.updateChart(new Date(from.getTime() + slide), new Date(to.getTime() + slide), Math.ceil(diff / 86400000 / this.xScale));
+        }
+      } else {
+        this.updateChart(this.from, this.to, Math.ceil((this.to.getTime() - this.from.getTime()) / 86400000) + 1);
+        if (this.xRange.value > 0) this.xRange.setValue(0);
+        this.selected.day = new Date(this.from.getTime() + Math.floor((this.to.getTime() - this.from.getTime()) / 2));
+        this.slide.next = this.to.getTime() < this.now.getTime() ? true : false;
+      }
+    }
+  }
+  @Output() sliding = new EventEmitter<{ from: Date, to: Date }>();
   private selected = { day: new Date(new Date().getTime() - 43200000), val: 0 };
   private term: String;//タイトルに表示されている期間
   private wH: any = {};//期間内の電力 
@@ -46,82 +70,11 @@ export class AreaChartComponent implements OnInit, OnDestroy {
   xRange = new FormControl(this.control.xRange);
   chartForm: FormGroup = this.builder.group({ xRange: this.xRange });//({ ledred: this.ledred })
   private xScale = 1;
-  private child_added;//１分ごとの新規データ追加イベント
   private onDestroy$ = new Subject();
-  constructor(private db: AngularFireDatabase, private ui: UiService, private builder: FormBuilder) { }
+  constructor(private ui: UiService, private builder: FormBuilder) { }
   ngOnInit() {
     this.chartForm.valueChanges.pipe(debounceTime(500), takeUntil(this.onDestroy$)).subscribe(changes => {
       this.updateControl(changes);
-    });
-  }
-  changeFromTo() {
-    this.ui.loading();
-    let y, m, d;
-    let data = {};
-    let diff = Math.ceil((this.to.getTime() - this.from.getTime()) / 86400000);
-    diff = this.from.getHours() === 0 && this.from.getMinutes() === 0 ? diff - 1 : diff;//0:00から始まっていれば１日読込を減らす
-    let day = new Date(this.from);
-    const startAt = (Math.floor(this.from.getTime() / 1000)).toString();
-    const readData = (y, m, d) => {
-      return new Promise((resolve, reject) => {
-        this.db.database.ref(`monitor/3180960054094360/${y}/${m}/${d}`).orderByKey().startAt(startAt).once('value', snap => {
-          data = { ...data, ...snap.val() };
-          resolve();
-        }).catch(err => {
-          reject(err);
-        });
-      });
-    }
-    let promise = Promise.resolve();
-    for (let i = 0; i <= diff; i++) {
-      y = day.getFullYear();
-      m = day.getMonth() + 1;
-      d = day.getDate();
-      day.setDate(day.getDate() + 1);
-      promise = promise.then(readData.bind(this, y, m, d));//readDataの直列promiseループ
-    }
-    promise.then(() => {
-      this.data = data;
-      if (this.xRange.value > 0) this.xRange.setValue(0);
-      this.selected.day = new Date(this.from.getTime() + Math.floor((this.to.getTime() - this.from.getTime()) / 2));
-      this.updateChart(this.from, this.to, diff + 1);
-      if (this.child_added) this.child_added.off();
-      if (this.to.getTime() >= this.now.getTime()) {
-        console.log(`event add`);
-        this.slide.next = false;
-        const startAt = (Math.ceil(this.now.getTime() / 1000)).toString();
-        this.child_added = this.db.database.ref(`monitor/3180960054094360/${y}/${m}/${d}`).orderByKey().startAt(startAt);
-        this.child_added.on('child_added', snap => {
-          let data = { [snap.key]: snap.val() };
-          this.data = { ...this.data, ...data };
-          const diff = this.to.getTime() - this.from.getTime() + 1000;
-          const from = this.chart.dataTable[1][0];
-          const term = Math.ceil(diff / this.xScale / 60000) * 60000;
-          const to = new Date(from.getTime() + term - 1000);
-          let noZoom = this.from.getTime() === from.getTime();// || this.to.getTime() === to.getTime();
-          let now = new Date(Number(snap.key) * 1000);
-          now.setSeconds(59);
-          this.now = new Date(now);
-          this.to = new Date(now);
-          this.from = new Date(now.getTime() - diff + 1000);
-          if (noZoom) {//拡大表示中
-            this.updateChart(this.from, this.to, Math.ceil(diff / 86400000 / this.xScale));
-            console.log(`child_added ${this.from}～${this.to}`);
-          } else {
-            let slide = this.to.getTime() - to.getTime();
-            slide = slide > 0 ? slide : 0;
-            console.log(`child_added zoom ${from}～${to}`);
-            this.updateChart(new Date(from.getTime() + slide), new Date(to.getTime() + slide), Math.ceil(diff / 86400000 / this.xScale));
-          }
-        });
-      } else {
-        this.slide.next = true;
-      }
-    }).catch(err => {
-      this.ui.alert(`データーの読込に失敗しました。`);
-      console.log(`${err}`);
-    }).finally(() => {
-      this.ui.loadend();
     });
   }
   updateChart(from, to, minuteAdd) {
@@ -235,7 +188,7 @@ export class AreaChartComponent implements OnInit, OnDestroy {
       this.to.setDate(this.to.getDate() + dir * diff);
       this.to = this.to.getTime() > this.now.getTime() ? new Date(this.now) : new Date(this.to);
       this.from = new Date(this.to.getTime() - diff * 86400000 + 1000);
-      this.changeFromTo();
+      this.sliding.emit({ from: this.from, to: this.to });
     } else {//拡大表示中      
       let slide = term;
       if (dir === -1) {
@@ -258,15 +211,6 @@ export class AreaChartComponent implements OnInit, OnDestroy {
       this.selected.day = new Date(from.getTime() + slide * dir + Math.floor(term / 2));
       this.updateChart(new Date(from.getTime() + slide * dir), new Date(to.getTime() + slide * dir), Math.ceil(diff / 8640000 / this.xScale));
     }
-  }
-  dummyData() {
-    let day = this.to;
-    let y = day.getFullYear();
-    let m = day.getMonth() + 1;
-    let d = day.getDate();
-    this.db.database.ref(`monitor/3180960054094360/thermo/${y}/${m}/${d}`).once('value', data => {
-      this.db.database.ref(`monitor/3180960054094360/thermo/${y}/${m}/${d - 1}`).set(data.val());
-    });
   }
   ngOnDestroy() {
     this.onDestroy$.next();
